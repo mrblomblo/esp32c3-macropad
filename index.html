@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MacroPad Configurator</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <style type="text/tailwindcss">
+    @theme {
+      --color-accent: #06b6d4;
+      --color-accent-hover: #22d3ee;
+      --color-accent-dim: #0e7490;
+    }
+  </style>
+  <style>
+    .key-card {
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+    }
+
+    .key-card:active {
+      transform: scale(0.97);
+    }
+
+    .key-card.editing {
+      border-color: #06b6d4;
+      box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.35);
+    }
+
+    .key-card.flash {
+      animation: flash-ok 0.5s ease;
+    }
+
+    @keyframes flash-ok {
+      0% {
+        box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.6);
+      }
+
+      50% {
+        box-shadow: 0 0 12px 4px rgba(34, 211, 238, 0.4);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(34, 211, 238, 0);
+      }
+    }
+
+    .toast-enter {
+      animation: toast-in 0.3s ease forwards;
+    }
+
+    .toast-exit {
+      animation: toast-out 0.3s ease forwards;
+    }
+
+    @keyframes toast-in {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes toast-out {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      to {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+    }
+
+    select option {
+      background: #1e293b;
+      color: #e2e8f0;
+    }
+
+    select optgroup {
+      background: #0f172a;
+      color: #94a3b8;
+      font-style: normal;
+      font-weight: 600;
+    }
+
+    .badge {
+      display: inline-block;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 0 4px;
+      border-radius: 3px;
+      line-height: 16px;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col items-center justify-start px-4 py-8 font-sans">
+
+  <!-- Header -->
+  <header class="w-full max-w-md flex items-center justify-between mb-8">
+    <div>
+      <h1 class="text-2xl font-bold tracking-tight text-gray-50">MacroPad</h1>
+      <p class="text-xs text-gray-500 mt-0.5">2×4 BLE Configurator</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-1.5">
+        <span id="statusDot" class="w-2 h-2 rounded-full bg-gray-600"></span>
+        <span id="statusText" class="text-xs text-gray-500">Offline</span>
+      </div>
+      <button id="btnConnect"
+        class="px-4 py-1.5 text-sm font-medium rounded-lg bg-accent hover:bg-accent-hover text-gray-950 transition-colors focus:outline-none focus:ring-2 focus:ring-accent/50">
+        Connect
+      </button>
+    </div>
+  </header>
+
+  <!-- Grid -->
+  <div id="grid" class="grid grid-cols-2 gap-3 w-full max-w-xs mb-6"></div>
+
+  <!-- Actions -->
+  <div class="flex gap-3 mb-4">
+    <button id="btnSave" disabled
+      class="px-6 py-2 text-sm font-semibold rounded-lg bg-accent hover:bg-accent-hover text-gray-950 transition-colors disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-accent/50">
+      Save to Device
+    </button>
+    <button id="btnResetAll"
+      class="px-4 py-2 text-sm font-medium rounded-lg border border-red-800/60 text-red-400 bg-red-950/30 hover:bg-red-900/50 hover:border-red-700 hover:text-red-300 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/50">
+      Reset All
+    </button>
+  </div>
+
+  <!-- Tools -->
+  <div class="flex items-center gap-2 mb-4 w-full max-w-xs">
+    <select id="presetSelect"
+      class="flex-1 min-w-0 bg-gray-900 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-gray-300 focus:outline-none focus:border-accent"
+      aria-label="Preset configurations">
+      <option value="">Presets…</option>
+      <option value="default">Default (A–H)</option>
+      <option value="productivity">Productivity</option>
+      <option value="media">Media</option>
+      <option value="drawing">Drawing</option>
+      <option value="navigation">Navigation</option>
+    </select>
+    <button id="btnExport"
+      class="px-3 py-1.5 text-sm rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-800 hover:border-gray-500 hover:text-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-accent/50"
+      title="Export configuration">
+      Export
+    </button>
+    <button id="btnImport"
+      class="px-3 py-1.5 text-sm rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-800 hover:border-gray-500 hover:text-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-accent/50"
+      title="Import configuration">
+      Import
+    </button>
+    <input type="file" id="fileImport" accept=".json" class="hidden" aria-hidden="true">
+  </div>
+
+  <p id="hint" class="text-xs text-gray-600 mt-2 text-center max-w-xs">
+    Connect via Bluetooth to read and configure your macropad.
+    Requires a Chromium-based browser with Web Bluetooth support.
+  </p>
+
+  <!-- Modal -->
+  <div id="modal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden" role="dialog"
+    aria-modal="true" aria-labelledby="modalTitle">
+    <div class="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-[360px] max-w-[92vw] shadow-2xl">
+      <h3 id="modalTitle" class="text-lg font-semibold mb-4">Edit Key 0</h3>
+
+      <label class="block text-xs text-gray-400 mb-1" for="keySelect">Key</label>
+      <select id="keySelect"
+        class="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-accent mb-4"></select>
+
+      <div id="modSection">
+        <label class="block text-xs text-gray-400 mb-2">Modifiers</label>
+        <div class="flex gap-4 mb-4">
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input type="checkbox" id="modCtrl" class="accent-cyan-500 w-4 h-4"> Ctrl
+          </label>
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input type="checkbox" id="modShift" class="accent-cyan-500 w-4 h-4"> Shift
+          </label>
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input type="checkbox" id="modAlt" class="accent-cyan-500 w-4 h-4"> Alt
+          </label>
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input type="checkbox" id="modAltGr" class="accent-cyan-500 w-4 h-4"> AltGr
+          </label>
+          <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+            <input type="checkbox" id="modGui" class="accent-cyan-500 w-4 h-4"> GUI
+          </label>
+        </div>
+        <p id="modNote" class="text-xs text-gray-500 mb-3 hidden">Media keys do not support modifiers.</p>
+      </div>
+
+      <div class="flex gap-3 justify-end">
+        <button id="btnClear"
+          class="px-3 py-1.5 text-sm rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-800 transition-colors">
+          Clear
+        </button>
+        <button id="btnCancel"
+          class="px-3 py-1.5 text-sm rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-800 transition-colors">
+          Cancel
+        </button>
+        <button id="btnApply"
+          class="px-4 py-1.5 text-sm font-medium rounded-lg bg-accent hover:bg-accent-hover text-gray-950 transition-colors">
+          Apply
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toasts" class="fixed bottom-6 right-6 flex flex-col gap-2 z-50 pointer-events-none"></div>
+
+  <script>
+    // ─── Constants ────────────────────────────────────────────────
+    const CFG_SVC_UUID = '12345678-1234-5678-1234-56789abcdef0';
+    const KM_UUID = '12345678-1234-5678-1234-56789abcdef1';
+
+    // ─── Key Options ──────────────────────────────────────────────
+    const KEY_GROUPS = [
+      { label: 'None', keys: [{ name: 'Unassigned', value: 0x0000 }] },
+      { label: 'Letters', keys: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((c, i) => ({ name: c, value: 0x04 + i })) },
+      { label: 'Numbers', keys: '1234567890'.split('').map((c, i) => ({ name: c, value: 0x1E + i })) },
+      { label: 'Function Keys', keys: Array.from({ length: 12 }, (_, i) => ({ name: `F${i + 1}`, value: 0x3A + i })) },
+      {
+        label: 'Special', keys: [
+          { name: 'Enter', value: 0x28 }, { name: 'Escape', value: 0x29 },
+          { name: 'Backspace', value: 0x2A }, { name: 'Tab', value: 0x2B },
+          { name: 'Space', value: 0x2C }, { name: 'Delete', value: 0x4C },
+          { name: 'Insert', value: 0x49 }, { name: 'Home', value: 0x4A },
+          { name: 'End', value: 0x4D }, { name: 'Page Up', value: 0x4B },
+          { name: 'Page Down', value: 0x4E }, { name: '↑ Up', value: 0x52 },
+          { name: '↓ Down', value: 0x51 }, { name: '← Left', value: 0x50 },
+          { name: '→ Right', value: 0x4F }, { name: 'Caps Lock', value: 0x39 },
+          { name: 'Print Screen', value: 0x46 }, { name: 'Scroll Lock', value: 0x47 },
+          { name: 'Pause/Break', value: 0x48 },
+        ]
+      },
+      {
+        label: 'Symbols', keys: [
+          { name: '- Minus', value: 0x2D }, { name: '= Equals', value: 0x2E },
+          { name: '[ L.Bracket', value: 0x2F }, { name: '] R.Bracket', value: 0x30 },
+          { name: '\\ Backslash', value: 0x31 }, { name: '; Semicolon', value: 0x33 },
+          { name: "' Quote", value: 0x34 }, { name: '` Backtick', value: 0x35 },
+          { name: ', Comma', value: 0x36 }, { name: '. Period', value: 0x37 },
+          { name: '/ Slash', value: 0x38 },
+        ]
+      },
+      {
+        label: 'Media', keys: [
+          { name: 'Play / Pause', value: 0x1000 | 0x00CD },
+          { name: 'Next Track', value: 0x1000 | 0x00B5 },
+          { name: 'Previous Track', value: 0x1000 | 0x00B6 },
+          { name: 'Volume Up', value: 0x1000 | 0x00E9 },
+          { name: 'Volume Down', value: 0x1000 | 0x00EA },
+          { name: 'Mute', value: 0x1000 | 0x00E2 },
+        ]
+      },
+    ];
+
+    const KEY_LOOKUP = {};
+    for (const g of KEY_GROUPS) for (const k of g.keys) KEY_LOOKUP[k.value] = k.name;
+
+    // ─── Presets ──────────────────────────────────────────────────
+    const PRESETS = {
+      default: [0x0004, 0x0005, 0x0006, 0x0007, 0x0008, 0x0009, 0x000A, 0x000B],
+      productivity: [0x011D, 0x011B, 0x0106, 0x0119, 0x0104, 0x0116, 0x0111, 0x011A],
+      media: [0x10B6, 0x10B5, 0x10EA, 0x10E9, 0x10E2, 0x10CD, 0x0000, 0x0000],
+      drawing: [0x002F, 0x0030, 0x0116, 0x0008, 0x031D, 0x011D, 0x004C, 0x002C],
+      navigation: [0x0052, 0x0051, 0x0050, 0x004F, 0x004A, 0x004D, 0x004B, 0x004E],
+    };
+
+    // ─── Modifier Info ────────────────────────────────────────────
+    const MOD_INFO = {
+      0x01: ['C', 'Ctrl', '#f97316'],
+      0x02: ['S', 'Shift', '#a855f7'],
+      0x04: ['A', 'Alt', '#3b82f6'],
+      0x08: ['G', 'GUI', '#22c55e'],
+      0x40: ['AG', 'AltGr', '#f43f5e'],
+    };
+
+    // ─── State ────────────────────────────────────────────────────
+    let device = null, server = null, kmChar = null;
+    let keymap = new Array(8).fill(0);
+    let editingIdx = -1;
+    let connected = false;
+    let dirty = false;
+    let userDisconnect = false;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 1;
+    let activePreset = '';
+
+    // ─── DOM refs ─────────────────────────────────────────────────
+    const $grid = document.getElementById('grid');
+    const $btnConn = document.getElementById('btnConnect');
+    const $btnSave = document.getElementById('btnSave');
+    const $btnResetAll = document.getElementById('btnResetAll');
+    const $statusDot = document.getElementById('statusDot');
+    const $statusText = document.getElementById('statusText');
+    const $modal = document.getElementById('modal');
+    const $modalT = document.getElementById('modalTitle');
+    const $keySel = document.getElementById('keySelect');
+    const $modCtrl = document.getElementById('modCtrl');
+    const $modShift = document.getElementById('modShift');
+    const $modAlt = document.getElementById('modAlt');
+    const $modAltGr = document.getElementById('modAltGr');
+    const $modGui = document.getElementById('modGui');
+    const $modNote = document.getElementById('modNote');
+    const $btnApply = document.getElementById('btnApply');
+    const $btnCancel = document.getElementById('btnCancel');
+    const $btnClear = document.getElementById('btnClear');
+    const $toasts = document.getElementById('toasts');
+    const $presetSel = document.getElementById('presetSelect');
+    const $btnExport = document.getElementById('btnExport');
+    const $btnImport = document.getElementById('btnImport');
+    const $fileImport = document.getElementById('fileImport');
+
+    // ─── Helpers ──────────────────────────────────────────────────
+    function isMedia(v) { return (v & 0x1000) !== 0; }
+
+    function decodeKey(v) {
+      return {
+        media: isMedia(v),
+        mods: (v >> 8) & 0xFF,
+        code: v & (isMedia(v) ? 0x0FFF : 0xFF),
+      };
+    }
+
+    function encodeKey(baseValue, mods) {
+      if (baseValue === 0x0000) return 0x0000;
+      if (baseValue & 0x1000) return baseValue;
+      return ((mods & 0xFF) << 8) | (baseValue & 0xFF);
+    }
+
+    function displayName(v) {
+      if (v === 0x0000) return '---';
+      const { media, code } = decodeKey(v);
+      const base = media ? v : (v & 0xFF);
+      return KEY_LOOKUP[base] || ('0x' + code.toString(16).toUpperCase());
+    }
+
+    // ─── Toast ────────────────────────────────────────────────────
+    function toast(msg, type = 'info') {
+      const colors = {
+        info: 'bg-gray-800 border-gray-600 text-gray-100',
+        success: 'bg-emerald-900/80 border-emerald-600 text-emerald-200',
+        error: 'bg-red-900/80 border-red-600 text-red-200',
+      };
+      const el = document.createElement('div');
+      el.className = `px-4 py-2 rounded-lg border text-sm shadow-lg toast-enter ${colors[type] || colors.info}`;
+      el.textContent = msg;
+      $toasts.appendChild(el);
+      setTimeout(() => {
+        el.classList.remove('toast-enter');
+        el.classList.add('toast-exit');
+        el.addEventListener('animationend', () => el.remove());
+      }, 2500);
+    }
+
+    // ─── Local Storage ───────────────────────────────────────────
+    function persistLocal() {
+      try { localStorage.setItem('macropad_keymap', JSON.stringify(keymap)); } catch { }
+    }
+
+    function loadLocal() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('macropad_keymap'));
+        if (Array.isArray(saved) && saved.length === 8) keymap = saved.map(Number);
+      } catch { }
+    }
+
+    // ─── Card HTML ────────────────────────────────────────────────
+    function cardHTML(i) {
+      const r = Math.floor(i / 2), c = i % 2;
+      const v = keymap[i];
+      const { media, mods } = decodeKey(v);
+      const label = displayName(v);
+
+      let tag = '';
+      if (media) {
+        tag = '<span class="badge" style="background:#8b5cf622;color:#8b5cf6">MEDIA</span>';
+      } else if (mods) {
+        const activeMods = [];
+        for (const [bit, info] of Object.entries(MOD_INFO)) {
+          if (mods & parseInt(bit)) activeMods.push(info);
+        }
+        const useShort = activeMods.length > 3;
+        for (const info of activeMods) {
+          const name = useShort ? info[0] : info[1];
+          tag += `<span class="badge" style="background:${info[2]}22;color:${info[2]}">${name}</span>`;
+        }
+      }
+
+      return `
+        <div class="text-[10px] text-gray-600 font-mono">R${r}C${c}</div>
+        <div class="font-mono text-sm text-gray-200 key-label">${label}</div>
+        <div class="flex items-center justify-center gap-1 flex-wrap min-h-[16px]">${tag}</div>
+      `;
+    }
+
+    // ─── Grid Rendering ──────────────────────────────────────────
+    function buildGrid() {
+      $grid.innerHTML = '';
+      for (let i = 0; i < 8; i++) {
+        const card = document.createElement('button');
+        card.className = 'key-card bg-gray-900 border border-gray-700 rounded-xl p-3 flex flex-col items-center justify-between h-24 cursor-pointer hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-accent/40';
+        card.dataset.idx = i;
+        card.innerHTML = cardHTML(i);
+        card.setAttribute('aria-label', `Key row ${Math.floor(i / 2)} column ${i % 2}: ${displayName(keymap[i])}`);
+        card.addEventListener('click', () => openEditor(i));
+        $grid.appendChild(card);
+      }
+    }
+
+    function refreshGrid() {
+      $grid.querySelectorAll('.key-card').forEach((card, i) => {
+        card.innerHTML = cardHTML(i);
+        card.classList.toggle('editing', i === editingIdx);
+        card.setAttribute('aria-label', `Key row ${Math.floor(i / 2)} column ${i % 2}: ${displayName(keymap[i])}`);
+      });
+    }
+
+    function flashCards() {
+      $grid.querySelectorAll('.key-card').forEach(card => {
+        card.classList.remove('flash');
+        void card.offsetWidth;
+        card.classList.add('flash');
+      });
+    }
+
+    // ─── Populate <select> ────────────────────────────────────────
+    function populateSelect() {
+      $keySel.innerHTML = '';
+      for (const g of KEY_GROUPS) {
+        const og = document.createElement('optgroup');
+        og.label = g.label;
+        for (const k of g.keys) {
+          const opt = document.createElement('option');
+          opt.value = k.value;
+          opt.textContent = k.name;
+          og.appendChild(opt);
+        }
+        $keySel.appendChild(og);
+      }
+    }
+
+    // ─── Modal ────────────────────────────────────────────────────
+    function openEditor(idx) {
+      editingIdx = idx;
+      const r = Math.floor(idx / 2), c = idx % 2;
+      $modalT.textContent = `Edit Key — R${r}C${c}`;
+
+      const { media, mods, code } = decodeKey(keymap[idx]);
+      const baseVal = media ? keymap[idx] : (code || 0);
+
+      let found = false;
+      for (const opt of $keySel.options) {
+        if (parseInt(opt.value) === baseVal) {
+          $keySel.value = opt.value;
+          found = true;
+          break;
+        }
+      }
+      if (!found) $keySel.value = '0';
+
+      $modCtrl.checked = !!(mods & 1);
+      $modShift.checked = !!(mods & 2);
+      $modAlt.checked = !!(mods & 4);
+      $modAltGr.checked = !!(mods & 0x40);
+      $modGui.checked = !!(mods & 8);
+
+      updateModState();
+      $modal.classList.remove('hidden');
+      refreshGrid();
+      requestAnimationFrame(() => $keySel.focus());
+    }
+
+    function closeEditor() {
+      $modal.classList.add('hidden');
+      editingIdx = -1;
+      refreshGrid();
+    }
+
+    function updateModState() {
+      const v = parseInt($keySel.value);
+      const media = isMedia(v);
+      $modCtrl.disabled = media;
+      $modShift.disabled = media;
+      $modAlt.disabled = media;
+      $modAltGr.disabled = media;
+      $modGui.disabled = media;
+      $modNote.classList.toggle('hidden', !media);
+      if (media) {
+        $modCtrl.checked = $modShift.checked = $modAlt.checked = $modGui.checked = false;
+      }
+    }
+
+    function getMods() {
+      let m = 0;
+      if ($modCtrl.checked) m |= 0x01;
+      if ($modShift.checked) m |= 0x02;
+      if ($modAlt.checked) m |= 0x04;
+      if ($modAltGr.checked) m |= 0x40;
+      if ($modGui.checked) m |= 0x08;
+      return m;
+    }
+
+    // ─── Dirty State ─────────────────────────────────────────────
+    function markDirty(fromPreset = false) {
+      dirty = true;
+      persistLocal();
+      refreshGrid();
+      updateConnUI();
+      if (!fromPreset && activePreset) {
+        activePreset = '';
+        $presetSel.value = '';
+      }
+    }
+
+    function clearDirty() {
+      dirty = false;
+      updateConnUI();
+    }
+
+    // ─── BLE ──────────────────────────────────────────────────────
+    async function connect() {
+      if (!navigator.bluetooth) {
+        toast('Web Bluetooth not supported in this browser', 'error');
+        return;
+      }
+
+      // Step 1: device picker — user cancel is a NotFoundError, ignore it
+      let dev;
+      try {
+        dev = await navigator.bluetooth.requestDevice({
+          filters: [{ services: [CFG_SVC_UUID] }],
+          optionalServices: [CFG_SVC_UUID],
+        });
+      } catch (e) {
+        if (e.name !== 'NotFoundError') toast('Device scan failed: ' + e.message, 'error');
+        return;
+      }
+
+      // Step 2: GATT connection — all errors are real and must surface
+      try {
+        device = dev;
+        device.addEventListener('gattserverdisconnected', onDisconnect);
+        server = await device.gatt.connect();
+        // Brief yield — ESP32 BLE stack needs a tick to enumerate services
+        await new Promise(r => setTimeout(r, 200));
+        const svc = await server.getPrimaryService(CFG_SVC_UUID);
+        kmChar = await svc.getCharacteristic(KM_UUID);
+        await readKeymap();
+        connected = true;
+        userDisconnect = false;
+        reconnectAttempts = 0;
+        updateConnUI();
+        toast('Connected', 'success');
+      } catch (e) {
+        toast('Connection failed: ' + e.message, 'error');
+        device = null;
+        server = null;
+        kmChar = null;
+      }
+    }
+
+    function disconnect() {
+      if (dirty && !confirm('You have unsaved changes. Disconnect anyway?')) return;
+      userDisconnect = true;
+      if (device) device.gatt.disconnect();
+    }
+
+    function onDisconnect() {
+      connected = false;
+      server = null;
+      kmChar = null;
+      updateConnUI();
+      toast('Disconnected', 'info');
+
+      if (!userDisconnect && device && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        reconnectAttempts++;
+        const savedDevice = device;
+        device = null;
+        toast('Attempting reconnect…', 'info');
+        setTimeout(async () => {
+          try {
+            server = await savedDevice.gatt.connect();
+            const svc = await server.getPrimaryService(CFG_SVC_UUID);
+            kmChar = await svc.getCharacteristic(KM_UUID);
+            await readKeymap();
+            device = savedDevice;
+            connected = true;
+            reconnectAttempts = 0;
+            updateConnUI();
+            toast('Reconnected', 'success');
+          } catch {
+            device = null;
+            toast('Reconnect failed', 'error');
+          }
+        }, 1500);
+      } else {
+        device = null;
+      }
+    }
+
+    async function readKeymap() {
+      const val = await kmChar.readValue();
+      const len = Math.min(8, Math.floor(val.byteLength / 2));
+      for (let i = 0; i < 8; i++) {
+        keymap[i] = i < len ? val.getUint16(i * 2, true) : 0x0000;
+      }
+      clearDirty();
+      persistLocal();
+      refreshGrid();
+    }
+
+    async function saveKeymap() {
+      if (!kmChar) return;
+      try {
+        const buf = new ArrayBuffer(16);
+        const dv = new DataView(buf);
+        for (let i = 0; i < 8; i++) dv.setUint16(i * 2, keymap[i], true);
+        await kmChar.writeValueWithResponse(buf);
+        clearDirty();
+        flashCards();
+        toast('Keymap saved!', 'success');
+      } catch (e) {
+        toast('Save failed: ' + e.message, 'error');
+      }
+    }
+
+    function updateConnUI() {
+      $statusDot.className = `w-2 h-2 rounded-full ${connected ? 'bg-emerald-400' : 'bg-gray-600'}`;
+      $statusText.textContent = connected ? 'Connected' : 'Offline';
+      $btnConn.textContent = connected ? 'Disconnect' : 'Connect';
+      $btnSave.disabled = !connected || !dirty;
+      if (dirty && connected) {
+        $btnSave.classList.add('ring-2', 'ring-accent/40');
+      } else {
+        $btnSave.classList.remove('ring-2', 'ring-accent/40');
+      }
+    }
+
+    // ─── Export / Import ──────────────────────────────────────────
+    function exportConfig() {
+      const blob = new Blob([JSON.stringify({ keymap, version: 1 }, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'macropad-config.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('Config exported', 'success');
+    }
+
+    function importConfig(file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          const km = data.keymap || data;
+          if (!Array.isArray(km) || km.length !== 8) throw new Error('Expected array of 8 entries');
+          keymap = km.map(Number);
+          markDirty();
+          toast('Config imported', 'success');
+        } catch (e) {
+          toast('Invalid file: ' + e.message, 'error');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // ─── Event Listeners ──────────────────────────────────────────
+    $btnConn.addEventListener('click', async () => {
+      if (connected) { disconnect(); return; }
+      $btnConn.disabled = true;
+      $btnConn.textContent = 'Connecting…';
+      $statusDot.className = 'w-2 h-2 rounded-full bg-yellow-400 animate-pulse';
+      $statusText.textContent = 'Connecting…';
+      try {
+        await connect();
+      } finally {
+        $btnConn.disabled = false;
+        updateConnUI();
+      }
+    });
+
+    $btnSave.addEventListener('click', saveKeymap);
+
+    $btnResetAll.addEventListener('click', () => {
+      if (keymap.every(v => v === 0)) return;
+      if (!confirm('Clear all keys? This cannot be undone.')) return;
+      keymap.fill(0);
+      markDirty();
+      toast('All keys cleared', 'info');
+    });
+
+    $keySel.addEventListener('change', () => { updateModState(); });
+
+    $btnApply.addEventListener('click', () => {
+      if (editingIdx < 0) return;
+      const base = parseInt($keySel.value);
+      keymap[editingIdx] = encodeKey(base, getMods());
+      markDirty();
+      closeEditor();
+    });
+
+    $btnClear.addEventListener('click', () => {
+      if (editingIdx < 0) return;
+      keymap[editingIdx] = 0x0000;
+      markDirty();
+      closeEditor();
+    });
+
+    $btnCancel.addEventListener('click', closeEditor);
+
+    $modal.addEventListener('click', (e) => { if (e.target === $modal) closeEditor(); });
+
+    $presetSel.addEventListener('change', () => {
+      const key = $presetSel.value;
+      if (!key || !PRESETS[key]) return;
+      keymap = [...PRESETS[key]];
+      activePreset = key;
+      markDirty(true);
+      toast(`Preset "${$presetSel.options[$presetSel.selectedIndex].text}" applied`, 'info');
+    });
+
+    $btnExport.addEventListener('click', exportConfig);
+    $btnImport.addEventListener('click', () => $fileImport.click());
+    $fileImport.addEventListener('change', () => {
+      if ($fileImport.files.length) importConfig($fileImport.files[0]);
+      $fileImport.value = '';
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if ($modal.classList.contains('hidden')) {
+        const cards = [...$grid.children];
+        const idx = cards.indexOf(document.activeElement);
+        if (idx >= 0) {
+          let next = -1;
+          if (e.key === 'ArrowRight') next = idx + 1;
+          if (e.key === 'ArrowLeft') next = idx - 1;
+          if (e.key === 'ArrowDown') next = idx + 2;
+          if (e.key === 'ArrowUp') next = idx - 2;
+          if (next >= 0 && next < 8) { e.preventDefault(); cards[next].focus(); }
+        }
+        return;
+      }
+      if (e.key === 'Escape') closeEditor();
+      if (e.key === 'Enter') $btnApply.click();
+      const focusable = $modal.querySelectorAll('button, select, input:not([disabled])');
+      if (!focusable.length) return;
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (e.key === 'Tab') {
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+
+    window.addEventListener('beforeunload', (e) => {
+      if (dirty) { e.preventDefault(); e.returnValue = ''; }
+    });
+
+    // ─── Init ─────────────────────────────────────────────────────
+    loadLocal();
+    populateSelect();
+    buildGrid();
+    updateConnUI();
+  </script>
+</body>
+
+</html>
