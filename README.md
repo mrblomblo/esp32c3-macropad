@@ -1,8 +1,8 @@
+<img width="1920" alt="Banner image of the finished macro pad" src="https://github.com/user-attachments/assets/49cba890-6401-4d10-acb9-053189fc5b9d" />
+
 # ESP32-C3 BLE MacroPad
 
 A compact 2×4 Bluetooth macro keyboard built on the **ESP32-C3 SuperMini**. Keys are fully remappable from a browser. No app, no driver, no USB cable (for programming) required after flashing.
-
----
 
 ## Features
 
@@ -15,17 +15,29 @@ A compact 2×4 Bluetooth macro keyboard built on the **ESP32-C3 SuperMini**. Key
 - **NVS persistence**, keymap survives power cycles
 - **Web Configurator** (`index.html` or [hosted](https://macropad.mrblomblo.com/)) over BLE, runs in any Chromium browser
 
----
+<details>
+<summary>View Images</summary>
+
+<img width="1440" height="1920" alt="image" src="https://github.com/user-attachments/assets/fc2aaa2d-c099-4ab6-b1eb-e4b8a5ca96fc" />
+
+<img width="1920" height="1440" alt="image" src="https://github.com/user-attachments/assets/8e2087e8-97c9-426e-9561-595a4cfcc262" />
+
+<img width="1920" height="1440" alt="image" src="https://github.com/user-attachments/assets/aecf7e4c-a3cf-4195-98fa-051e66dbfcc8" />
+
+</details>
 
 ## Hardware
 
 | Part | Notes |
 | --- | --- |
 | ESP32-C3 SuperMini | Any variant with the standard pinout works |
-| SSD1306 OLED | 128×32, I²C, address `0x3C` |
-| 8 switches | Wired in a 4-row × 2-column matrix |
+| SSD1306 OLED | 128×32, I2C, address `0x3C` |
+| 8 Switches | Mechanical keyboard switches recommended. Wired in a 4-row × 2-column matrix |
 | 8 Diodes | Probs not needed, but best to be safe |
-| Pull-up resistors | Not needed, firmware uses internal `INPUT_PULLUP` on rows |
+| 8 Keycaps | Choose whatever you like |
+| 9 M3 screws | Should be countersunk and should not have a total length of more than 14 mm |
+| 3D-printed Parts | Found [here](https://www.printables.com/model/1754812-esp32-c3-macropad) |
+| Pull-up resistors | **Not needed, firmware uses internal `INPUT_PULLUP` on rows** |
 
 ### Pin Wiring
 
@@ -54,8 +66,6 @@ The columns are driven LOW one at a time during each scan; rows are read with in
 └────────┴────────┘
 ```
 
----
-
 ## Firmware Setup
 
 ### Dependencies
@@ -75,8 +85,6 @@ Install these libraries in the Arduino IDE before compiling:
 
 > **Subsequent reflashes without USB:** Hold **R1C0** (second row, left key) while powering on. The firmware forces the ESP32-C3 into its hardware bootloader so you can flash over USB without pressing the physical BOOT button in case something goes horribly wrong.
 
----
-
 ## Boot Modes
 
 The firmware checks two keys during startup (before the BLE stack initialises). Hold the key, apply power, then release once you see the OLED message.
@@ -92,8 +100,6 @@ Config mode advertises on a separate Bluetooth MAC address so it should never co
 > [!NOTE]
 > You may need to "forget" the Macropad device for the Macropad-CFG device (configurator mode) to work properly!
 
----
-
 ## OLED Display
 
 The 128×32 screen is divided into two columns of four rows, one cell per key.
@@ -105,8 +111,6 @@ The 128×32 screen is divided into two columns of four rows, one cell per key.
 | Small flashing dot (top-right) | BLE not connected, blinks every second |
 | `CFG` badge (top-centre) | Device is in Config mode |
 | Blank screen | Display has gone to sleep after 60s of inactivity, or you are in Flash mode |
-
----
 
 ## Web Configurator
 
@@ -152,8 +156,6 @@ The **Presets** dropdown loads a ready-made 8-key layout. Applying a preset mark
 
 The configurator also caches the last keymap in browser `localStorage`, so the grid is pre-populated on the next visit even without a device connected.
 
----
-
 ## Key Encoding
 
 Keycodes are stored as `uint16_t` values in the format below. You can use this if you want to craft a JSON config by hand.
@@ -186,16 +188,12 @@ Bits  7–0  : HID keycode (standard) or consumer usage ID (media)
 | `0x10E9` | Volume Up (media) |
 | `0x0000` | Unassigned (no action) |
 
----
-
 ## BLE Services
 
 | Mode | Service UUID | Characteristic UUID | Purpose |
 | --- | --- | --- | --- |
 | Keyboard | `0x1812` (standard HID) | standard HID reports | Keyboard + consumer input |
 | Config | `12345678-1234-5678-1234-56789abcdef0` | `12345678-1234-5678-1234-56789abcdef1` | Read/write raw keymap (16 bytes, 8 × `uint16_t` LE) |
-
----
 
 ## Troubleshooting
 
